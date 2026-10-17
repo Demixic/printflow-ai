@@ -1,0 +1,20 @@
+# Local PostgreSQL for development. Credentials here are for local use only.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: printflow
+      POSTGRES_PASSWORD: printflow
+      POSTGRES_DB: printflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - printflow-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U printflow -d printflow"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  printflow-pg:

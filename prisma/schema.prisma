@@ -1,0 +1,69 @@
+// PrintFlow AI — order management schema.
+// Connection settings live in prisma7.config.ts (CLI) and src/server/db.ts (runtime).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Lifecycle of an order, independent of where it sits on the floor.
+enum OrderStatus {
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+}
+
+/// Where an active order currently sits in the production workflow.
+enum ProductionStage {
+  ARTWORK
+  PRODUCTION
+  QUALITY_CHECK
+  READY_TO_SHIP
+}
+
+enum PrintMethod {
+  SCREEN_PRINT
+  EMBROIDERY
+  DTG
+  DTF_TRANSFER
+  LARGE_FORMAT
+}
+
+model Order {
+  id              String          @id @default(cuid())
+  /// Numeric part of the order number. Allocated from OrderNumberCounter;
+  /// orderNumber is always "PF-" || sequence (enforced by a CHECK constraint).
+  sequence        Int             @unique @map("order_seq")
+  orderNumber     String          @unique @map("order_number") @db.VarChar(20)
+  customer        String          @db.VarChar(120)
+  product         String          @db.VarChar(200)
+  method          PrintMethod
+  quantity        Int
+  dueDate         DateTime        @map("due_date") @db.Date
+  status          OrderStatus     @default(ACTIVE)
+  stage           ProductionStage @default(ARTWORK)
+  rush            Boolean         @default(false)
+  artworkApproved Boolean         @default(false) @map("artwork_approved")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  // Further integrity rules (quantity range, non-blank text, workflow
+  // consistency) are CHECK constraints in the migrations; Prisma's schema
+  // language cannot express them.
+  @@index([dueDate])
+  @@index([status, dueDate])
+  @@map("orders")
+}
+
+/// Single-row counter that hands out order sequence numbers. Incrementing it
+/// row-locks the counter, so concurrent creates get distinct numbers.
+model OrderNumberCounter {
+  name  String @id @db.VarChar(32)
+  value Int
+
+  @@map("order_number_counters")
+}
